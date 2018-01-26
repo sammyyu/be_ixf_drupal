@@ -1,0 +1,12 @@
+name: BrightEdge IX Foundation Module
+package: BrightEdge
+description: Module for integration with BrightEdge IX Foundation
+
+type: module
+
+configure: brightedge.admin_form
+project : 'be_ixf_drupal'
+
+version: '8.x-0.2'
+core: '8.x'
+datestamp: 1517003045
