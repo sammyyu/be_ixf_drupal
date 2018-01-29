@@ -5,6 +5,7 @@ namespace Drupal\be_ixf_drupal\Plugin\Block;
 use Drupal\Core\Block\BlockBase;
 use Drupal\Core\Block\BlockPluginInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Cache\Cache;
 
 /**
  * Provides a 'BrightEdge Foundation Content' Block.
@@ -79,11 +80,21 @@ class IXFContentBlock extends BlockBase implements BlockPluginInterface {
    * {@inheritdoc}
    */
   public function build() {
+    $node = \Drupal::routeMatch()->getParameter('node');
+    // only apply for nodes not admin or user
+    if (!isset($node)) {
+      return NULL;
+    }
+
+    // Internal Page Cache module causes problems which makes the module cached forever
+    // @see https://drupal.stackexchange.com/questions/237777/setting-cache-max-age-to-0-has-no-effect-on-block-built-using-blockbase
+    // drupal ticket; https://www.drupal.org/node/2352009
+    // \Drupal::service('page_cache_kill_switch')->trigger();
     $config = $this->getConfiguration();
     $node_type = $config['type'];
     $node_feature_group = $config['feature_group'];
 
-    $be_ixf_client = \Drupal::service("brightedge.request");
+    $be_ixf_client = \Drupal::service("brightedge.request")->getClient();
 //    $raw_html = "node_type=$node_type, node_feature_group=$node_feature_group"; 
     $raw_html = ""; 
     if ($node_type == self::NODE_TYPE_BODY_STR) {
@@ -102,26 +113,60 @@ class IXFContentBlock extends BlockBase implements BlockPluginInterface {
       $raw_html .= $be_ixf_client->close();
     }
     $build = array(
+      '#cache' => array(),
       '#type' => 'inline_template',
       '#template' => '{{ somecontent | raw }}',
       '#context' => array(
         'somecontent' => $raw_html
-      ),
-      '#cache' => array()
+      )
     );
+
+/*
+    $build['#cache'] = [
+      'max-age' => 0
+    ];
+*/
     // Set the cache data appropriately.
+    // @see https://www.drupal.org/docs/8/api/render-api/cacheability-of-render-arrays
     $build['#cache']['contexts'] = $this->getCacheContexts();
     $build['#cache']['tags'] = $this->getCacheTags();
     $build['#cache']['max-age'] = $this->getCacheMaxAge();
+//    var_dump($build);
     return $build;
   }
-  
+
+  public function getCacheTags() {
+    // With this when your node change your block will rebuild
+    if ($node = \Drupal::routeMatch()->getParameter('node')) {
+      // if there is node add its cachetag
+      $config = $this->getConfiguration();
+      $node_type = $config['type'];
+      $node_feature_group = $config['feature_group'];
+      return Cache::mergeTags(parent::getCacheTags(), array('node:' . $node->id(),
+          'custom_be:' . $node_type . "_" . $node_feature_group));
+    } else {
+      // Return default tags instead.
+      return parent::getCacheTags();
+    }
+  }
+
+  public function getCacheContexts() {
+    // if you depends on \Drupal::routeMatch()
+    // you must set context of this block with 'route' context tag.
+    // Every new route this block will rebuild
+    return Cache::mergeContexts(parent::getCacheContexts(), array('route', 'url.query_args:ixf_debug'));
+  }
+
   public function getCacheMaxAge() {
+    // this doesn't work for logged out users
+    // @see https://www.drupal.org/project/drupal/issues/2592555
+    // @see https://www.drupal.org/project/drupal/issues/2352009
     $module_config = \Drupal::config('brightedge.settings');
     $cache_age = 3600;
     if ($module_config->get('block_cache_max_age') != null) {
       $cache_age = intval($module_config->get('block_cache_max_age'));
     }
+//    $cache_age = 120;
     return $cache_age;
   }
 

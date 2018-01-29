@@ -1,5 +1,4 @@
 <?php
-
 /**
  * @file
  * Contains \Drupal\be_ixf_drupal\EventSubscriber\RedirectHTTPHeaders.
@@ -33,7 +32,13 @@ class RedirectHTTPHeaders implements EventSubscriberInterface {
     $response->headers->set($param, $value);
 */
 
-    $be_ixf_client = \Drupal::service("brightedge.request");
+    $node = \Drupal::routeMatch()->getParameter('node');
+    // only apply for nodes not admin or user
+    if (!isset($node)) {
+      return;
+    }
+
+    $be_ixf_client = \Drupal::service("brightedge.request")->getClient();
     if ($be_ixf_client->hasRedirectNode()) {
       $redirect_info = $be_ixf_client->getRedirectNodeInfo();
       if ($redirect_info != null) {
@@ -43,6 +48,7 @@ class RedirectHTTPHeaders implements EventSubscriberInterface {
         $response->headers->set("Location", $location);
       }
     }
+
   }
 
   /**
