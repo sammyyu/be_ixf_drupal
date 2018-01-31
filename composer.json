@@ -16,8 +16,8 @@
     "source": "https://cgit.drupalcode.org/brightedge"
   },
   "license": "GPL-2.0+",
-  "minimum-stability": "dev",
+  "minimum-stability": "stable",
   "require": {
-    "brightedge/be_ixf_php_sdk": "dev-master"
+    "brightedge/be_ixf_php_sdk": "^1.4.1"
   }
 }
